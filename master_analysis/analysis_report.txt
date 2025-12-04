@@ -1,0 +1,28 @@
+Garden Analysis Report
+============================================================
+Generated: 2025-12-04 04:11:28
+
+SUMMARY
+============================================================
+
+Total addresses in dataset: 10
+Addresses not yet analyzed: 0
+
+a) Addresses with completed analysis: 10
+   (Analysis marked as low, medium, or high likelihood)
+
+   Breakdown:
+   - Low likelihood:       3 ( 30.0%)
+   - Medium likelihood:    3 ( 30.0%)
+   - High likelihood:      4 ( 40.0%)
+
+b) Addresses with MEDIUM or HIGH likelihood: 7
+   Proportion: 70.0% of analyzed addresses
+   (7 out of 10 addresses)
+
+c) Addresses with HIGH likelihood only: 4
+   Proportion: 40.0% of analyzed addresses
+   (4 out of 10 addresses)
+
+============================================================
+End of Report

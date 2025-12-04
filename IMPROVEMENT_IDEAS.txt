@@ -1,0 +1,641 @@
+================================================================================
+              GARDEN DETECTION IMPROVEMENT IDEAS
+              Creative Brainstorming Document
+================================================================================
+
+Current State Analysis
+----------------------
+- Model: GPT-4o-mini (lightweight, general-purpose vision model)
+- Input: Single 640x640 satellite image at zoom level 20
+- Features: Visual pattern matching (rows, beds, soil, cultivation)
+- Output: low/medium/high likelihood + reasoning
+
+Problems Identified:
+- False negatives: Missing actual vegetable gardens
+- False positives: Detecting gardens where there are none
+- Limited visual context and single-perspective analysis
+
+
+================================================================================
+CATEGORY 1: MODEL & PROMPT IMPROVEMENTS
+================================================================================
+
+1.1 UPGRADE THE VISION MODEL
+-----------------------------
+Current: GPT-4o-mini is fast and cheap but may lack the nuanced reasoning
+needed for this specialized task.
+
+Ideas:
+- Try GPT-4o (full version) - better at detailed image analysis
+- Try Claude Sonnet 4 Vision - excellent at reasoning about images, may catch
+  subtle details GPT misses
+- Try Claude Opus 4 Vision - best reasoning, could be used for "hard" cases
+- Try Gemini 1.5 Pro - strong at image understanding, different perspective
+- A/B test models: Run same images through multiple models, compare results
+
+Implementation: Add model selection to config, run comparison study
+
+
+1.2 TWO-STAGE ANALYSIS PIPELINE
+-------------------------------
+Problem: Single-pass analysis might miss gardens or over-detect.
+
+Idea: Stage 1 (Detection) → Stage 2 (Verification)
+
+Stage 1: "Is there ANY possibility of a vegetable garden here?"
+  - Use high-sensitivity prompt
+  - Cast wide net, accept false positives
+  - Output: yes/no/maybe
+
+Stage 2: "Confirm this is actually a vegetable garden"
+  - Only for Stage 1 positives
+  - Use high-specificity prompt
+  - Ask for specific evidence
+  - Output: confirmed/rejected + confidence
+
+This catches gardens that might be dismissed in a single pass while
+filtering out false positives.
+
+
+1.3 CONFIDENCE SCORING
+----------------------
+Problem: "medium" likelihood is vague.
+
+Idea: Ask model to provide numerical confidence (0-100) plus reasoning.
+
+New output structure:
+{
+  "likelihood": "high",
+  "confidence_score": 85,
+  "evidence_found": ["raised beds visible", "row patterns", "different from lawn"],
+  "evidence_against": ["small area", "partial tree cover"],
+  "reasoning": "..."
+}
+
+Benefits: Better triage, can set custom thresholds, identify uncertain cases.
+
+
+1.4 ENHANCED PROMPT ENGINEERING
+-------------------------------
+Current prompt focuses on: rows, raised beds, rectangular patches, dark soil.
+
+Missing indicators to add:
+
+Physical structures:
+- Trellises, stakes, or support structures
+- Greenhouses or cold frames (even small plastic ones)
+- Compost bins or piles nearby
+- Water tanks or rain barrels
+- Hose reels or irrigation systems visible
+- Garden sheds in close proximity
+- Fencing around specific areas (animal protection)
+
+Vegetation patterns:
+- Diversity of plant types in small area (vs. monoculture lawn)
+- Different growth heights in organized pattern
+- Climbing plants on structures
+- Leafy greens (distinctive texture)
+- Plants in containers/pots clustered together
+
+Ground features:
+- Mulched pathways between growing areas
+- Straw or mulch covering soil
+- Defined edges/borders (timber, brick, stone)
+- Different colored soil (amended vs. native)
+- Bare soil patches in organized pattern (freshly planted)
+
+Negative indicators (to reduce false positives):
+- Ornamental flower beds only
+- Decorative landscaping patterns
+- Native bush regeneration areas
+- Unkempt/overgrown areas (abandoned, not cultivated)
+
+
+1.5 EXAMPLE-BASED PROMPTING
+---------------------------
+Problem: Model doesn't know what Australian backyard veggie gardens look like.
+
+Idea: Include example images in the prompt (few-shot learning).
+
+Implementation:
+- Collect 5-10 confirmed vegetable garden images from the project
+- Include them in the prompt: "Here are examples of vegetable gardens..."
+- Then show the target image: "Does this property have a similar garden?"
+
+This grounds the model's understanding in real examples from your dataset.
+
+
+1.6 NEGATIVE EXAMPLE PROMPTING
+------------------------------
+Show examples of things that are NOT vegetable gardens:
+- Ornamental flower beds
+- Native gardens
+- Swimming pools with surrounding garden
+- Lawn with decorative borders
+- Orchards (fruit trees, not veggie garden)
+
+"These are NOT vegetable gardens. The target should look different from these."
+
+
+================================================================================
+CATEGORY 2: MULTI-SCALE & MULTI-VIEW ANALYSIS
+================================================================================
+
+2.1 MULTIPLE ZOOM LEVELS
+------------------------
+Problem: Zoom 20 might be too close (lose context) or too far (miss detail).
+
+Idea: Analyze at multiple zoom levels:
+
+Zoom 18: Wide context view
+  - See entire property
+  - Understand property layout
+  - Identify large garden areas
+  - See relationship to house
+
+Zoom 20: Current detail view
+  - Existing analysis
+
+Zoom 21: Super close-up (if available)
+  - See individual plants
+  - Identify specific vegetables
+  - See row patterns clearly
+
+Combine insights from all three levels:
+"At zoom 18, I can see the property has a dedicated area behind the house.
+At zoom 20, I can see raised beds in this area.
+At zoom 21, I can see what appear to be tomato cages."
+
+
+2.2 MULTIPLE VIEWPOINTS
+-----------------------
+Problem: Single center-point image might miss garden in corner of property.
+
+Idea: Generate multiple images per property:
+- Property centroid (current)
+- Property corners (4 images)
+- Areas furthest from house (often where gardens are)
+
+Analyze all images, combine results.
+
+
+2.3 PANORAMIC/COMPOSITE VIEW
+----------------------------
+Idea: Stitch multiple images together for larger coverage area.
+
+For larger properties, create a 2x2 or 3x3 grid of satellite images,
+stitch together, send as one large image for holistic analysis.
+
+
+================================================================================
+CATEGORY 3: TEMPORAL & SEASONAL ANALYSIS
+================================================================================
+
+3.1 SEASONAL COMPARISON
+-----------------------
+Problem: Gardens look very different across seasons.
+
+Summer: Lush, full growth, might look like any greenery
+Winter: Bare soil, dormant, easier to see bed structure
+Spring: Young plants, defined rows visible
+Autumn: Harvested areas, mixed growth
+
+Idea: Access historical imagery (Google Earth has time slider)
+
+Compare same property across seasons:
+- Summer image shows green
+- Winter image shows bare rectangular beds
+- High confidence: This is a vegetable garden!
+
+
+3.2 YEAR-OVER-YEAR COMPARISON
+-----------------------------
+Gardens change more than lawns or permanent landscaping.
+
+Compare 2024 image vs 2023 vs 2022:
+- Changes in specific areas = likely garden (crop rotation)
+- Static green areas = permanent lawn/landscaping
+- New structures appearing = possible garden expansion
+
+
+3.3 NDVI CHANGE DETECTION
+-------------------------
+NDVI (Normalized Difference Vegetation Index) shows plant health/density.
+
+If accessing multispectral imagery:
+- Vegetable gardens have different NDVI patterns than lawns
+- Gardens show seasonal NDVI cycles (planting → growth → harvest → bare)
+- Lawns show relatively stable NDVI year-round
+
+
+================================================================================
+CATEGORY 4: ALTERNATIVE DATA SOURCES
+================================================================================
+
+4.1 SENTINEL-2 SATELLITE DATA (FREE)
+------------------------------------
+European Space Agency provides free global satellite imagery.
+
+Advantages:
+- Multispectral bands (including Near-Infrared for vegetation analysis)
+- Free access via Google Earth Engine or Copernicus
+- Regular revisit (every 5 days)
+- Historical archive
+
+Disadvantages:
+- Lower resolution (10m) - better for larger gardens
+- Might need to combine with Google imagery
+
+Use case: NDVI analysis, seasonal change detection on larger properties
+
+
+4.2 GOOGLE EARTH ENGINE
+-----------------------
+Powerful platform for satellite image analysis.
+
+Capabilities:
+- Historical Landsat/Sentinel imagery
+- Built-in vegetation indices
+- Time series analysis
+- Machine learning on imagery
+
+Could build: Automated NDVI time series analysis per property
+Flag properties with garden-like seasonal patterns.
+
+
+4.3 STREET VIEW INTEGRATION
+---------------------------
+Google Street View sometimes captures backyard glimpses.
+
+Ideas:
+- Fetch Street View images from property frontage
+- Look for: garden visible over fence, greenhouse in driveway view
+- Side streets might show backyard of corner properties
+- Water tanks, compost bins visible from street = garden indicators
+
+
+4.4 PLANET LABS / MAXAR IMAGERY
+-------------------------------
+Commercial high-resolution providers.
+
+Advantages:
+- Daily imagery (Planet)
+- Very high resolution (Maxar: 30cm)
+- Multispectral options
+
+Disadvantages:
+- Expensive
+- Overkill for this project unless scaling significantly
+
+
+4.5 LIDAR / ELEVATION DATA
+--------------------------
+If available (some councils have this):
+
+Uses:
+- Detect raised garden beds (elevation difference)
+- Identify terraced gardens
+- Find garden areas in 3D
+
+
+================================================================================
+CATEGORY 5: CONTEXTUAL & ENVIRONMENTAL SIGNALS
+================================================================================
+
+5.1 NEIGHBORHOOD ANALYSIS
+-------------------------
+Hypothesis: Gardens cluster. If neighbors garden, you might too.
+
+Implementation:
+- Analyze entire street first
+- Calculate "neighborhood garden density"
+- Adjust prior probability based on neighbors
+
+"This street has 60% gardens detected. Adjusting likelihood upward for
+ambiguous cases."
+
+
+5.2 PROPERTY SIZE CORRELATION
+-----------------------------
+Larger properties more likely to have dedicated garden space.
+
+Implementation:
+- Calculate property area from cadastre data
+- Analyze: property size vs. garden likelihood correlation
+- Use as prior: "Large property with space available"
+
+
+5.3 HOUSE FOOTPRINT RATIO
+-------------------------
+Ratio of house to total property area.
+
+Small house on large lot = more garden space available
+Large house filling lot = less likely to have garden
+
+Calculate: (Property area - House footprint) / Property area
+Use as "garden potential" score.
+
+
+5.4 PROXIMITY TO GARDEN SUPPLY STORES
+-------------------------------------
+Wild idea: Areas near Bunnings/garden centers might have more gardeners!
+
+Calculate distance to nearest garden supply store.
+Use as weak prior signal.
+
+
+5.5 DEMOGRAPHIC DATA CORRELATION
+--------------------------------
+ABS census data includes:
+- Age demographics (retirees often garden)
+- Property ownership (owners more likely to garden than renters)
+- Income levels (varies with garden likelihood)
+
+Use as additional signal layers.
+
+
+5.6 WATER USAGE DATA (if accessible)
+------------------------------------
+Properties with gardens use more water in summer.
+
+If council water data available (anonymized):
+- Higher summer water usage = possible garden irrigation
+- Would need careful privacy considerations
+
+
+================================================================================
+CATEGORY 6: ADVANCED COMPUTER VISION TECHNIQUES
+================================================================================
+
+6.1 SEMANTIC SEGMENTATION
+-------------------------
+Use models like SAM (Segment Anything Model) to segment property into:
+- House
+- Lawn
+- Trees
+- Garden beds
+- Driveway/paving
+- Pool
+- Other structures
+
+Then analyze: "What percentage is identified as garden beds?"
+
+Benefits: More precise than bounding box, handles irregular shapes.
+
+
+6.2 OBJECT DETECTION
+--------------------
+Train or use model to detect specific garden objects:
+- Raised beds
+- Greenhouses
+- Water tanks
+- Compost bins
+- Trellises
+- Cold frames
+- Garden sheds
+- Fencing (garden-style)
+
+If multiple garden-related objects detected = high likelihood.
+
+
+6.3 TEXTURE ANALYSIS
+--------------------
+Gardens have distinctive texture patterns:
+- Row patterns (parallel lines)
+- Grid patterns (beds with paths)
+- Mixed textures (various plants)
+- Mulch texture (distinct from lawn)
+
+Use image processing (not AI) to detect these textures:
+- Edge detection for rows
+- Fourier analysis for periodic patterns
+- Color segmentation for soil/mulch
+
+
+6.4 COLOR SPACE ANALYSIS
+------------------------
+Beyond RGB:
+- Convert to HSV for better color separation
+- Identify brown soil hues
+- Identify specific green tones (veggie vs. lawn green)
+- Detect mulch colors (brown, red, black)
+
+Gardens have more color diversity than lawns.
+
+
+6.5 CUSTOM FINE-TUNED MODEL
+---------------------------
+Ultimate solution: Train a model specifically for Australian backyard gardens.
+
+Training data:
+- Use your confirmed high-likelihood images as positives
+- Use confirmed negatives
+- Augment with images from gardening forums/groups
+- Manual labeling of ambiguous cases
+
+Model options:
+- Fine-tune CLIP/BLIP for classification
+- Train YOLO variant for detection
+- Use transfer learning on ResNet/EfficientNet
+
+Would require significant data collection but highest accuracy.
+
+
+================================================================================
+CATEGORY 7: PROCESS & WORKFLOW IMPROVEMENTS
+================================================================================
+
+7.1 HUMAN-IN-THE-LOOP FOR EDGE CASES
+------------------------------------
+For medium-likelihood cases:
+- Flag for human review
+- Build simple review interface
+- Human confirms/rejects
+- Feed back into system (training data)
+
+
+7.2 ACTIVE LEARNING PIPELINE
+----------------------------
+1. Run current system
+2. Identify uncertain cases (medium likelihood)
+3. Human reviews and labels
+4. Use labeled data to improve prompts/train model
+5. Repeat
+
+Iteratively improves accuracy over time.
+
+
+7.3 QUALITY SCORING FOR IMAGES
+------------------------------
+Problem: Some satellite images are poor quality (clouds, shadows, old).
+
+Before analysis, assess image quality:
+- Cloud cover?
+- Shadow coverage?
+- Image age/freshness?
+- Resolution/blur?
+
+Skip or flag low-quality images for re-fetch or manual review.
+
+
+7.4 ENSEMBLE VOTING SYSTEM
+--------------------------
+Run analysis through multiple methods:
+- GPT-4o-mini
+- Claude Sonnet
+- Custom texture analysis
+- NDVI analysis (if available)
+
+Final decision = weighted vote of all methods.
+
+If 3/4 say high → high
+If 2/4 say high, 2 say medium → medium
+Reduces individual model biases.
+
+
+7.5 PROBABILISTIC OUTPUT
+------------------------
+Instead of discrete categories, output probability:
+
+P(garden) = 0.73
+P(no garden) = 0.27
+
+Allows flexible threshold setting:
+- Survey wants all possibilities? Threshold = 0.3
+- Survey wants confirmed only? Threshold = 0.8
+
+
+================================================================================
+CATEGORY 8: WILD & UNCONVENTIONAL IDEAS
+================================================================================
+
+8.1 DETECT WHAT'S NOT THERE
+---------------------------
+Reverse approach: Detect absence of things that would prevent gardens.
+
+If property has:
+- No pool → more garden space
+- Small patio → more garden space
+- No large tree canopy → more sun for garden
+- No heavy shade → suitable for vegetables
+
+"This property has few obstructions to vegetable gardening."
+
+
+8.2 SHADOW ANALYSIS
+-------------------
+Raised beds cast shadows at certain sun angles.
+
+If imagery captured in early morning or late afternoon:
+- Detect long shadows from short objects
+- Shadow length + angle = object height
+- ~30cm shadows in grid pattern = raised beds!
+
+
+8.3 INFRARED HEAT ANALYSIS (FUTURE)
+-----------------------------------
+Thermal imagery differences:
+- Moist garden soil = cooler
+- Dry lawn = warmer
+- Growing plants = specific thermal signature
+
+Would need thermal satellite data (expensive but possible).
+
+
+8.4 SOCIAL MEDIA CORRELATION
+----------------------------
+People post garden photos on Instagram/Facebook with location tags.
+
+(Privacy concerns, but theoretically):
+- High density of #veggiepatch posts in suburb = gardening community
+- Adjust priors for entire suburb
+
+
+8.5 GARDEN CLUB / COMMUNITY GARDEN DATA
+---------------------------------------
+Public data:
+- Locations of community gardens
+- Active gardening clubs
+- Council gardening programs
+
+Properties near community gardens or in active gardening suburbs
+= adjusted prior probability.
+
+
+8.6 AI AGENTS FOR CLARIFICATION
+-------------------------------
+Build an agent that:
+1. Analyzes image
+2. Identifies uncertain elements
+3. Asks specific questions: "Is that green rectangle near the back fence
+   a trampoline or a garden bed?"
+4. Searches for additional context
+5. Makes final determination
+
+More sophisticated than single-pass analysis.
+
+
+8.7 SYNTHETIC DATA AUGMENTATION
+-------------------------------
+Generate training data:
+- Take lawn images
+- Digitally add garden beds
+- Train model on synthetic + real data
+
+Or:
+- Use DALL-E/Midjourney to generate "Australian backyard vegetable garden"
+- Use as positive examples in few-shot prompting
+
+
+8.8 REVERSE GEOCODING GARDEN CENTERS
+------------------------------------
+Wild idea: Check if address has ordered from garden supply deliveries.
+
+(Obviously privacy-impossible, but illustrates lateral thinking)
+
+
+================================================================================
+PRIORITY RECOMMENDATIONS
+================================================================================
+
+QUICK WINS (Easy to implement, likely high impact):
+1. Enhanced prompt with additional features (1.4)
+2. Confidence scoring output (1.3)
+3. Test GPT-4o or Claude Vision (1.1)
+4. Multiple zoom levels (2.1)
+
+MEDIUM EFFORT (More work, strong potential):
+5. Two-stage analysis pipeline (1.2)
+6. Few-shot prompting with examples (1.5)
+7. Neighborhood analysis (5.1)
+8. Texture/pattern analysis (6.3)
+
+LARGER PROJECTS (Significant effort, transformative potential):
+9. Seasonal comparison via Google Earth historical (3.1)
+10. Semantic segmentation with SAM (6.1)
+11. Ensemble voting system (7.4)
+12. Custom fine-tuned model (6.5)
+
+
+================================================================================
+NEXT STEPS
+================================================================================
+
+1. Review false negatives: Manually examine missed gardens to understand
+   what features the AI is missing
+
+2. Review false positives: Examine incorrect detections to understand
+   what's confusing the AI
+
+3. A/B test prompts: Try enhanced prompts on sample set, measure improvement
+
+4. A/B test models: Compare GPT-4o-mini vs GPT-4o vs Claude on same images
+
+5. Implement confidence scoring: Get more granular output for better analysis
+
+6. Build review interface: Allow human verification of edge cases
+
+7. Collect training examples: Build library of confirmed gardens and non-gardens
+
+
+================================================================================
